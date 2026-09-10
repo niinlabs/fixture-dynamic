@@ -54,6 +54,7 @@ try {
   check(r.status === 200, `/version responds 200 (got ${r.status})`);
   check(Number.isInteger(body.schema_version), `/version reports an integer schema version (got ${body.schema_version})`);
   console.log(`    schema_version = ${body.schema_version}`);
+  console.log(`    code_schema_version = ${body.code_schema_version ?? '(not reported by this build)'}`);
 } catch (e) {
   check(false, `/version request failed: ${e.message}`);
 }

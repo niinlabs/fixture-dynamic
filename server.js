@@ -53,6 +53,12 @@ const MIGRATIONS = [
   },
 ];
 
+// schema_version is what the database has been migrated to; this is the
+// newest migration this build knows about. After a rollback the code's value
+// can be lower than the database's, and the application must keep working —
+// which is why every migration here is additive.
+const CODE_SCHEMA_VERSION = Math.max(...MIGRATIONS.map((m) => m.version));
+
 async function migrate() {
   await pool.query(`CREATE TABLE IF NOT EXISTS schema_migrations (
                       version int PRIMARY KEY,
@@ -149,9 +155,9 @@ app.get('/health', async (_req, res) => {
 app.get('/version', async (_req, res) => {
   try {
     const { rows } = await pool.query('SELECT max(version) AS v FROM schema_migrations');
-    res.json({ slug: SLUG, schema_version: rows[0].v });
+    res.json({ slug: SLUG, schema_version: rows[0].v, code_schema_version: CODE_SCHEMA_VERSION });
   } catch (e) {
-    res.status(503).json({ slug: SLUG, error: e.message });
+    res.status(503).json({ slug: SLUG, code_schema_version: CODE_SCHEMA_VERSION, error: e.message });
   }
 });
 
