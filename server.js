@@ -44,6 +44,13 @@ const MIGRATIONS = [
             created_at timestamptz NOT NULL DEFAULT now()
           );`,
   },
+  {
+    // Additive and nullable on purpose. Code from before this migration keeps
+    // working against the migrated schema, which is what makes rolling the
+    // application back safe without rolling the database back.
+    version: 2,
+    sql: `ALTER TABLE fixture_note ADD COLUMN IF NOT EXISTS revised_at timestamptz;`,
+  },
 ];
 
 async function migrate() {
