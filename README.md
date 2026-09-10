@@ -18,7 +18,7 @@ not a difference between the two services.
 | Path | Purpose |
 | --- | --- |
 | `/` | Public page: reads a row from its own database and a marker file from its own volume |
-| `/health` | Internal check: database reachable, storage writable. `503` when either fails |
+| `/health` | Internal check: database reachable, `/data` is a mounted volume and writable. `503` when any fails |
 | `/version` | Current schema version, so a migration is verifiable from outside |
 
 ## Environment
@@ -30,6 +30,7 @@ not a difference between the two services.
 | `FIXTURE_DATA_DIR` | Writable volume mount point (default `/data`) |
 | `FIXTURE_FAIL_HEALTH` | `1` makes `/health` return 503 while the process stays up |
 | `FIXTURE_CRASH_ON_BOOT` | `1` exits 1 at startup, producing a crash loop |
+| `FIXTURE_REQUIRE_VOLUME` | `0` skips the mount check — only for running outside Linux; never set in the estate |
 
 The last two exist so the failed-health and crash-loop exercises need no code
 change — the fault is configuration, and reverting it is a single edit.

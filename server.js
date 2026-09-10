@@ -17,6 +17,7 @@ const DATA_DIR = process.env.FIXTURE_DATA_DIR || '/data';
 const PORT = process.env.PORT || 3000;
 const FAIL_HEALTH = process.env.FIXTURE_FAIL_HEALTH === '1';
 const CRASH_ON_BOOT = process.env.FIXTURE_CRASH_ON_BOOT === '1';
+const REQUIRE_VOLUME = process.env.FIXTURE_REQUIRE_VOLUME !== '0';
 
 if (CRASH_ON_BOOT) {
   console.error(`[${SLUG}] FIXTURE_CRASH_ON_BOOT set — exiting 1 to produce a crash loop`);
@@ -73,11 +74,38 @@ async function migrate() {
   );
 }
 
-// Writable storage is part of what makes this fixture stateful. The health
-// check writes and reads back rather than only checking the path exists —
-// a mounted-but-read-only volume is a real failure mode and looks fine to
-// anything that only stats the directory.
+// A writable directory is not persistent storage. Without a volume, DATA_DIR
+// is an ordinary directory in the container's writable layer: every write
+// succeeds, and every write is discarded when the container is replaced. A
+// write-and-read-back probe cannot tell the two apart, so the check first
+// asks the kernel whether the path is actually a mount.
+function isMountPoint(dir) {
+  const target = path.resolve(dir);
+  return fs
+    .readFileSync('/proc/self/mountinfo', 'utf8')
+    .split('\n')
+    .some((line) => {
+      const fields = line.split(' ');
+      return fields[4] && fields[4].replace(/\\040/g, ' ') === target;
+    });
+}
+
+// Writable storage is part of what makes this fixture stateful. After
+// confirming a mount, the check writes and reads back rather than only
+// checking the path exists — a mounted-but-read-only volume is a real
+// failure mode and looks fine to anything that only stats the directory.
 function storageCheck() {
+  if (REQUIRE_VOLUME) {
+    let mounted;
+    try {
+      mounted = isMountPoint(DATA_DIR);
+    } catch {
+      throw new Error('cannot verify mount (no /proc/self/mountinfo); set FIXTURE_REQUIRE_VOLUME=0 outside Linux');
+    }
+    if (!mounted) {
+      throw new Error(`${DATA_DIR} is not a mounted volume — writes will not survive container replacement`);
+    }
+  }
   const probe = path.join(DATA_DIR, '.health-probe');
   const stamp = String(Date.now());
   fs.mkdirSync(DATA_DIR, { recursive: true });
