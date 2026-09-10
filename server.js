@@ -51,6 +51,12 @@ const MIGRATIONS = [
     version: 2,
     sql: `ALTER TABLE fixture_note ADD COLUMN IF NOT EXISTS revised_at timestamptz;`,
   },
+  {
+    // Additive, like 2. Exists so a rollback across a migration can be
+    // exercised: the build before this one must run against schema 3.
+    version: 3,
+    sql: `ALTER TABLE fixture_note ADD COLUMN IF NOT EXISTS tag text;`,
+  },
 ];
 
 // schema_version is what the database has been migrated to; this is the
