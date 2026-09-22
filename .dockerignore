@@ -1,0 +1,4 @@
+node_modules
+.git
+smoke-check.mjs
+README.md
