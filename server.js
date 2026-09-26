@@ -161,7 +161,16 @@ app.get('/health', async (_req, res) => {
 app.get('/version', async (_req, res) => {
   try {
     const { rows } = await pool.query('SELECT max(version) AS v FROM schema_migrations');
-    res.json({ slug: SLUG, schema_version: rows[0].v, code_schema_version: CODE_SCHEMA_VERSION });
+    // node_version is reported so the public smoke check can compare what is
+    // actually running against the repository's pins. Four places name the
+    // major — the Dockerfile's base image, engines, .nvmrc and the lockfile —
+    // and nothing else would notice them drifting apart.
+    res.json({
+      slug: SLUG,
+      schema_version: rows[0].v,
+      code_schema_version: CODE_SCHEMA_VERSION,
+      node_version: process.version,
+    });
   } catch (e) {
     res.status(503).json({ slug: SLUG, code_schema_version: CODE_SCHEMA_VERSION, error: e.message });
   }

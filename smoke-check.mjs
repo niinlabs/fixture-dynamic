@@ -59,6 +59,35 @@ try {
   check(false, `/version request failed: ${e.message}`);
 }
 
+// The Node major that is actually running, against the repository's pins.
+// Production is pinned by the Dockerfile's base image; engines, .nvmrc and the
+// lockfile pin local development. They must agree, and only a check makes that
+// true rather than hoped for. Compares the deployed artifact, not the checkout:
+// a mismatch means either drift in the repository or an old image still serving.
+try {
+  const { readFileSync } = await import('node:fs');
+  const { fileURLToPath } = await import('node:url');
+  const dir = fileURLToPath(new URL('.', import.meta.url));
+  const major = (v) => String(v).replace(/[^0-9]*([0-9]+).*/, '$1');
+
+  const pinned = {
+    Dockerfile: major(readFileSync(`${dir}Dockerfile`, 'utf8').match(/^FROM node:(\S+)/m)?.[1] ?? ''),
+    engines: major(JSON.parse(readFileSync(`${dir}package.json`, 'utf8')).engines?.node ?? ''),
+    '.nvmrc': major(readFileSync(`${dir}.nvmrc`, 'utf8').trim()),
+  };
+  const agreed = [...new Set(Object.values(pinned))];
+  check(agreed.length === 1, `the repository pins one Node major (${Object.entries(pinned).map(([k, v]) => `${k}=${v}`).join(', ')})`);
+
+  const r = await fetch(`${base}/version`);
+  const running = major((await r.json()).node_version ?? '');
+  check(
+    running !== '' && running === agreed[0],
+    `the running Node major matches the pin (running ${running || 'not reported'}, pinned ${agreed.join('/')})`,
+  );
+} catch (e) {
+  check(false, `Node pin check failed: ${e.message}`);
+}
+
 // TLS and canonical host.
 check(base.startsWith('https://'), 'checked over https');
 
